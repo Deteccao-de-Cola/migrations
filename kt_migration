@@ -1,0 +1,53 @@
+import pandas as pd
+import mysql.connector
+import glob
+
+# Database connection
+conn = mysql.connector.connect(
+    host='127.0.0.1',
+    user='root',
+    password='force8104',
+    database='tccdb'
+)
+
+cursor = conn.cursor()
+
+# Get all CSV files
+csv_files = glob.glob('./KT1/u*.csv')
+print(f"Found {len(csv_files)} CSV files: {csv_files}")
+
+
+# Read and combine all CSV files
+all_data = []
+for file in csv_files:
+    df = pd.read_csv(file)
+    all_data.append(df)
+
+combined_df = pd.concat(all_data, ignore_index=True)
+print(f"{len(combined_df)} total rows")
+
+# Clean question_id - extract numbers only
+combined_df['question_id'] = combined_df['question_id'].str.extract('(\d+)').astype(int)
+
+# Convert timestamp from milliseconds to datetime
+combined_df['timestamp'] = pd.to_datetime(combined_df['timestamp'], unit='ms')
+
+# Convert letter answers to numbers (a=1, b=2, c=3, d=4)
+answer_map = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+combined_df['user_answer'] = combined_df['user_answer'].map(answer_map)
+
+# Remove duplicates - keep latest timestamp
+combined_df = combined_df.sort_values('timestamp', ascending=False)
+combined_df = combined_df.drop_duplicates(subset=['solving_id', 'question_id'])
+
+# Insert data
+for _, row in combined_df.iterrows():
+    cursor.execute("""
+        INSERT INTO POSSUI (idProva, idQuestao, dataHoraResposta, resposta)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE resposta = VALUES(resposta)
+    """, (row['solving_id'], row['question_id'], row['timestamp'], row['user_answer']))
+
+conn.commit()
+cursor.close()
+conn.close()
