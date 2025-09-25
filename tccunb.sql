@@ -1,4 +1,4 @@
-CREATE TABLE user_actions (
+CREATE TABLE respostas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     respondida_em DATETIME NOT NULL,
     tipo_acao VARCHAR(50) NOT NULL,
