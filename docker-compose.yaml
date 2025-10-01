@@ -1,0 +1,10 @@
+services:
+  python-processor:
+    container_name: migrations
+    networks:
+      - tcc-cola-network
+    build: .
+
+networks:
+  tcc-cola-network:
+    external: true
