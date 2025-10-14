@@ -21,14 +21,13 @@ DB_CONFIG = {
 }
 
 def unix_to_mysql_datetime(timestamp):
-    ts = int(timestamp) 
+    ts = float(timestamp) / 1000  # Convert to float first, then divide
     dt = datetime.fromtimestamp(ts)
     return dt.strftime('%Y-%m-%d %H:%M:%S')
 
 def truncate_respostas():
     conn = None
     cursor = None
-    
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
@@ -111,7 +110,7 @@ def processar_e_salvar(csv_files):
                     exam_entry = (
                         question_id,
                         row['user_answer'] if row['user_answer'] else None,
-                        unix_to_mysql_datetime(1758760582) if row['timestamp'] else None,
+                        unix_to_mysql_datetime(row['timestamp'] ) if row['timestamp'] else None,
                         row['action_type'] ,
                         row['source'] ,
                         row['platform'] ,
