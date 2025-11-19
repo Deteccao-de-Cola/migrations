@@ -50,6 +50,30 @@ def truncate_respostas():
         if conn and conn.is_connected():
             conn.close()
 
+def create_lake_source():
+    conn = None
+    cursor = None
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        
+        cursor.execute("INSERT INTO lake_source (name, created_at, updated_at) VALUES ('kt-migration', NOW(), NOW());")
+        conn.commit()  
+        
+        print("Tabela 'respostas_lake' foi limpa.")
+        return True
+    
+    except Error as err:
+        if conn:
+            conn.rollback()
+        print(f"Erro durante truncagem: {err}")
+        return False
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
 def insert_data(record_array, conn):
     cursor = None
@@ -59,8 +83,8 @@ def insert_data(record_array, conn):
         cursor = conn.cursor()
         
         insert_sql = """
-            INSERT INTO respostas_lake (item_id, resposta_usuario, respondida_em, tipo_acao, fonte, plataforma, user_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO respostas_lake (item_id, resposta_usuario, respondida_em, user_id, source_id)
+            VALUES (%s, %s, %s, %s, 1)
         """
         
         cursor.executemany(insert_sql, record_array)
@@ -68,6 +92,7 @@ def insert_data(record_array, conn):
         conn.commit()
         
         return len(record_array)
+        
         
     except Error as err:
         if conn:
@@ -111,9 +136,6 @@ def processar_e_salvar(csv_files):
                         question_id,
                         row['user_answer'] if row['user_answer'] else None,
                         unix_to_mysql_datetime(row['timestamp'] ) if row['timestamp'] else None,
-                        row['action_type'] ,
-                        row['source'] ,
-                        row['platform'] ,
                         user_id,
                     )
                     
@@ -177,6 +199,8 @@ def main():
     print('init')
     if not wait_for_db():
         exit(1)
+    
+    create_lake_source()
 
     truncate_respostas()
     data = process_csv_files(folder_path)
