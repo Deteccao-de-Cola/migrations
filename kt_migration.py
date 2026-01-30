@@ -57,7 +57,7 @@ def create_lake_source():
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
         
-        cursor.execute("INSERT INTO lake_source (name, created_at, updated_at) VALUES ('kt-migration', NOW(), NOW());")
+        cursor.execute("INSERT INTO lake_source (name, createdAt, updatedAt) VALUES ('kt-migration', NOW(), NOW());")
         conn.commit()  
         
         print("Tabela 'respostas_lake' foi limpa.")
@@ -83,7 +83,7 @@ def insert_data(record_array, conn):
         cursor = conn.cursor()
         
         insert_sql = """
-            INSERT INTO respostas_lake (item_id, resposta_usuario, respondida_em, user_id, source_id)
+            INSERT INTO respostas_lake (itemId, respostaUsuario, respondidaEm, userId, sourceId)
             VALUES (%s, %s, %s, %s, 1)
         """
         
@@ -106,43 +106,63 @@ def insert_data(record_array, conn):
         if conn and conn.is_connected():
             conn.close()
 
+def letter_to_alternative_id(question_id, letter):
+    
+    if not letter or letter == '':
+        return None
+
+    letter_map = {
+        'a': 1,
+        'b': 2,
+        'c': 3,
+        'd': 4,
+        'e': 5
+    }
+
+    letter_lower = letter.lower()
+    if letter_lower not in letter_map:
+        return None
+
+    alternative_id = question_id * 100 + letter_map[letter_lower]
+    return alternative_id
+
 def processar_e_salvar(csv_files):
     result = {
         "name": "EdNet-KT2-samples",
         "exams": []
     }
-    
 
-    conn = None    
+    conn = None
     for filename in csv_files:
-        user_id_match = re.search(r'u(\d+)\.csv', filename)
-        if not user_id_match:
+        userId_match = re.search(r'u(\d+)\.csv', filename)
+        if not userId_match:
             continue
 
-        user_id = int(user_id_match.group(1))
+        userId = int(userId_match.group(1))
         file_path = os.path.join(folder_path, filename)
-        
+
         user_exam = []
 
-        
+
         with open(file_path, 'r') as file:
-            reader = csv.DictReader(file)            
+            reader = csv.DictReader(file)
 
             for row in reader:
-                if row['action_type'] == 'respond' and row['item_id'].startswith('q'):
-                    question_id = int(row['item_id'][1:])
-                    #row['timestamp']
+                if row['action_type'] == 'respond' and row['itemId'].startswith('q'):
+                    question_id = int(row['itemId'][1:])
+
+                    alternative_id = letter_to_alternative_id(question_id, row['user_answer'])
                     exam_entry = (
                         question_id,
-                        row['user_answer'] if row['user_answer'] else None,
+                        alternative_id,
                         unix_to_mysql_datetime(row['timestamp'] ) if row['timestamp'] else None,
-                        user_id,
+                        userId,
                     )
-                    
+
                     user_exam.append(exam_entry)
 
             insert_data(user_exam, conn)
-        
+
     return result
 
 def process_csv_files(folder_path):
